@@ -1,0 +1,11 @@
+[package]
+name = "tracer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glam = "0.29.2"
+indicatif = { version = "0.17.9", features = ["rayon"] }
+itertools = "0.13.0"
+rand = "0.8.5"
+rayon = "1.10.0"
