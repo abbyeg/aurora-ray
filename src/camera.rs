@@ -1,18 +1,19 @@
 use glam::DVec3;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use rand::{random, Rng};
+use rand::{rngs::SmallRng, thread_rng, Rng, SeedableRng};
 use rayon::prelude::*;
 use std::{
-    f64::consts::PI,
-    fs::File,
-    io::{self, Write},
+    cell::RefCell, f64::consts::PI, fs::File, hash::{DefaultHasher, Hash, Hasher}, io::{self, BufWriter, Write}, ptr, sync::Arc, thread, time::{
+        SystemTime, 
+        UNIX_EPOCH
+    }
 };
 
-use crate::hittable::HittableList;
+use crate::{fastrand::random_f64, fastrand::random_in_range, hittable::HittableList};
 use crate::ray::Ray;
 
-const MAX_VAL: u32 = 255;
+const MAX_VAL: u8 = 255;
 
 pub struct CameraBuilder {
     pub aspect_ratio: Option<f64>,
@@ -206,10 +207,12 @@ impl Camera {
         file_path: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut file = File::create(file_path)?;
-        self.write_ppm_header(&mut file)?;
+        let mut buf_writer = BufWriter::new(file);
+        self.write_ppm_header(&mut buf_writer)?;
         let size: u64 = self.image_height as u64 * self.image_width as u64;
 
-        let bar = ProgressBar::new(size);
+        let bar = Arc::new(ProgressBar::new(size));
+        
         bar.set_style(
             ProgressStyle::default_bar()
                 .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} ({percent}%)")
@@ -218,26 +221,52 @@ impl Camera {
         );
 
         // render each pixel
-        let pixels = (0..(self.image_height as u32))
-            .cartesian_product(0..(self.image_width as u32))
-            .collect::<Vec<(u32, u32)>>()
+        let pixels: Vec<DVec3> = (0..(self.image_height as u32))
             .into_par_iter()
-            .progress_with(bar.clone())
-            .map(|(y, x)| {
-                let pixel_color: DVec3 = (0..self.samples_per_pixel)
+            .enumerate()
+            .map(|(i, y)| {
+                let row: Vec<DVec3> = (0..(self.image_width as u32)).map(|x| {
+                    let pixel_color: DVec3 = (0..self.samples_per_pixel)
                     .map(|_| {
                         let ray = self.get_ray(x, y);
                         self.color(&ray, self.max_depth, &world)
                     })
                     .sum();
-                self.pixel_samples_scale * pixel_color
+                    
+                    self.pixel_samples_scale * pixel_color
+                })
+                .collect();
+                if i % 100 == 0 {  // Batch updates to reduce overhead
+                    Arc::clone(&bar).inc(100 * self.image_width as u64);
+                }
+                row
             })
-            .collect::<Vec<DVec3>>();
+            .flat_map(|row| row.to_vec())
+            .collect();
+
+        // render each pixel
+        // let pixels = (0..(self.image_height as u32))
+        //     .cartesian_product(0..(self.image_width as u32))
+        //     .collect::<Vec<(u32, u32)>>()
+        //     .into_par_iter()
+        //     .progress_with(bar.clone())
+        //     .map(|(y, x)| {
+        //         let pixel_color: DVec3 = (0..self.samples_per_pixel)
+        //             .map(|_| {
+        //                 let ray = self.get_ray(x, y);
+        //                 self.color(&ray, self.max_depth, &world)
+        //             })
+        //             .sum();
+        //         self.pixel_samples_scale * pixel_color
+        //     })
+        //     .collect::<Vec<DVec3>>();
 
         pixels.into_iter().for_each(|pixel| {
-            self.write_color(pixel, &mut file)
+            self.write_color(pixel, &mut buf_writer)
                 .expect("Failed to write pixel color.")
         });
+
+        buf_writer.flush()?;
 
         println!("Finished processing in {:?}", bar.elapsed());
 
@@ -261,13 +290,12 @@ impl Camera {
     /// Returns the vector to a random point in the
     /// [-.5,-.5]-[+.5,+.5] unit square.
     fn sample_square(&self) -> DVec3 {
-        let mut rng = rand::thread_rng();
-        let rx = rng.gen::<f64>() - 0.5;
-        let ry = rng.gen::<f64>() - 0.5;
+        let rx = random_f64() - 0.5;
+        let ry = random_f64() - 0.5;
         DVec3::new(rx, ry, 0.0)
     }
 
-    fn write_color(&self, pixel_color: DVec3, file: &mut File) -> io::Result<()> {
+    fn write_color(&self, pixel_color: DVec3, writer: &mut BufWriter<File>) -> io::Result<()> {
         let r = self.linear_to_gamma(pixel_color.x);
         let g = self.linear_to_gamma(pixel_color.y);
         let b = self.linear_to_gamma(pixel_color.z);
@@ -278,18 +306,17 @@ impl Camera {
             b.clamp(0.000, 0.999),
         ) * MAX_VAL as f64;
 
-        writeln!(
-            file,
-            "{} {} {}",
-            adj_color.x as u32, adj_color.y as u32, adj_color.z as u32
-        )?;
+        writeln!(writer, "{} {} {}", adj_color.x as u8, adj_color.y as u8, adj_color.z as u8)?;
+        // writer.write(&[adj_color.x as u8, adj_color.y as u8, adj_color.z as u8])?;
+        
         Ok(())
     }
 
-    fn write_ppm_header(&mut self, file: &mut File) -> io::Result<()> {
-        writeln!(file, "P3")?;
-        writeln!(file, "{} {}", self.image_width, self.image_height)?;
-        writeln!(file, "{}", MAX_VAL)?;
+    fn write_ppm_header(&mut self, writer: &mut BufWriter<File>) -> io::Result<()> {
+        writeln!(writer, "P3")?;
+        writeln!(writer, "{} {}", self.image_width, self.image_height)?;
+        writeln!(writer, "{}", MAX_VAL)?;
+        
         Ok(())
     }
 
@@ -334,9 +361,8 @@ pub fn degrees_to_radians(degrees: f64) -> f64 {
 }
 
 pub fn random_in_unit_disk() -> DVec3 {
-    let mut rng = rand::thread_rng();
     loop {
-        let p = DVec3::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);
+        let p = DVec3::new(random_in_range(-1.0, 1.0), random_in_range(-1.0, 1.0), 0.0);
         if p.length_squared() < 1.0 {
             return p;
         }

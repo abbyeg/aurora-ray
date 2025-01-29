@@ -13,3 +13,7 @@ You should get an image like the following:
 ![Big Scene](images/spheres-big-scene.png)
 
 Note: This might take some time to run, a progress bar is provided to anticipate the general render time.
+
+## Notes on Optimization
+
+Currently running the complex scene at:
