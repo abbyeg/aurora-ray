@@ -101,14 +101,20 @@ fn big_scene() -> io::Result<()> {
 
     let aspect_ratio = 16.0 / 9.0;
     let image_width = 1200;
-    let samples_per_pixel = 250;
-    let max_depth = 25;
+    let samples_per_pixel = 100;
+    let max_depth = 40;
 
     let mut camera = CameraBuilder::new()
         .image_width(image_width)
         .aspect_ratio(aspect_ratio)
         .samples_per_pixel(samples_per_pixel)
         .max_depth(max_depth)
+        .vertical_fov(20.)
+        .look_from(DVec3::new(13.,2.,3.))
+        .look_at(DVec3::new(0.,0.,0.))
+        .v_up(DVec3::new(0., 1., 0.))
+        // .defocus_angle(0.6)
+        .focus_dist(1000.)
         .build();
 
     let _ = camera.render(&world, "spheres-big-scene.ppm".to_string());
@@ -137,15 +143,21 @@ fn simple() -> io::Result<()> {
     }));
 
     let aspect_ratio = 16.0 / 9.0;
-    let image_width = 1200;
-    let samples_per_pixel = 300;
-    let max_depth = 30;
+    let image_width = 600;
+    let samples_per_pixel = 50;
+    let max_depth = 5;
 
     let mut camera = CameraBuilder::new()
         .image_width(image_width)
         .aspect_ratio(aspect_ratio)
         .samples_per_pixel(samples_per_pixel)
         .max_depth(max_depth)
+        .vertical_fov(20.)
+        .look_from(DVec3::new(13.,2.,3.))
+        .look_at(DVec3::new(0.,0.,0.))
+        .v_up(DVec3::new(0., 1., 0.))
+        .defocus_angle(0.6)
+        .focus_dist(10.)
         .build();
 
     let _ = camera.render(&world, "spheres-big-scene.ppm".to_string());

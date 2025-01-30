@@ -219,6 +219,7 @@ impl Camera {
                 .expect("Failed to set progress bar style")
                 .progress_chars("██░"),
         );
+        bar.inc(0);
 
         // render each pixel
         let pixels: Vec<DVec3> = (0..(self.image_height as u32))
@@ -292,6 +293,7 @@ impl Camera {
     fn sample_square(&self) -> DVec3 {
         let rx = random_f64() - 0.5;
         let ry = random_f64() - 0.5;
+        // println!("rx: {rx}, ry: {ry}");
         DVec3::new(rx, ry, 0.0)
     }
 
