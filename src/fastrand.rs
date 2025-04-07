@@ -14,7 +14,7 @@ impl Xoshiro256 {
         let mut state = [0; 4];
         let mut hasher = DefaultHasher::new();
         seed.hash(&mut hasher);
-        
+
         // Seed all state elements differently
         for i in 0..4 {
             hasher.write_u64(i as u64);
@@ -30,17 +30,20 @@ impl Xoshiro256 {
 
     #[inline]
     fn next(&mut self) -> u64 {
-        let result = self.state[0].wrapping_add(self.state[3]).rotate_left(23).wrapping_add(self.state[0]);
+        let result = self.state[0]
+            .wrapping_add(self.state[3])
+            .rotate_left(23)
+            .wrapping_add(self.state[0]);
         let t = self.state[1] << 17;
-        
+
         self.state[2] ^= self.state[0];
         self.state[3] ^= self.state[1];
         self.state[1] ^= self.state[2];
         self.state[0] ^= self.state[3];
-        
+
         self.state[2] ^= t;
         self.state[3] = self.state[3].rotate_left(45);
-        
+
         result
     }
 
@@ -60,7 +63,7 @@ thread_local! {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos() as u64;
-        
+
         RefCell::new(Xoshiro256::new(time_seed ^ thread_id))
     };
 }

@@ -3,11 +3,8 @@ use std::io;
 use glam::DVec3;
 use rand::Rng;
 
-use tracer::{
-    camera::CameraBuilder,
-    hittable::HittableList,
-    material::Material,
-    shapes::sphere::Sphere
+use aurora::{
+    camera::CameraBuilder, hittable::HittableList, material::Material, shapes::sphere::Sphere,
 };
 
 fn main() -> io::Result<()> {

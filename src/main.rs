@@ -1,14 +1,11 @@
 #![feature(thread_id_value)]
 use std::io;
 
+use aurora::{
+    camera::CameraBuilder, hittable::HittableList, material::Material, shapes::sphere::Sphere,
+};
 use glam::DVec3;
 use rand::Rng;
-use tracer::{
-    camera::CameraBuilder, 
-    hittable::HittableList, 
-    material::Material, 
-    shapes::sphere::Sphere
-};
 
 fn big_scene() -> io::Result<()> {
     let ground_material = Material::Lambertian {
@@ -75,7 +72,7 @@ fn big_scene() -> io::Result<()> {
         refractive_index: 1.5,
     };
     world.objects.push(Box::new(Sphere {
-        center: DVec3::new(0.0, 1.0, 0.1),
+        center: DVec3::new(0.0, 1.0, 0.0),
         radius: 1.0,
         material: material1,
     }));
@@ -84,7 +81,7 @@ fn big_scene() -> io::Result<()> {
         albedo: DVec3::new(0.4, 0.2, 0.1),
     };
     world.objects.push(Box::new(Sphere {
-        center: DVec3::new(-4.0, 1.0, 0.1),
+        center: DVec3::new(-4.0, 1.0, 0.),
         radius: 1.0,
         material: material2,
     }));
@@ -99,71 +96,63 @@ fn big_scene() -> io::Result<()> {
         material: material3,
     }));
 
-    let aspect_ratio = 16.0 / 9.0;
-    let image_width = 1200;
-    let samples_per_pixel = 100;
-    let max_depth = 40;
-
     let mut camera = CameraBuilder::new()
-        .image_width(image_width)
-        .aspect_ratio(aspect_ratio)
-        .samples_per_pixel(samples_per_pixel)
-        .max_depth(max_depth)
+        .image_width(600)
+        .aspect_ratio(16.0 / 9.0)
+        .samples_per_pixel(200)
+        .max_depth(50)
         .vertical_fov(20.)
-        .look_from(DVec3::new(13.,2.,3.))
-        .look_at(DVec3::new(0.,0.,0.))
-        .v_up(DVec3::new(0., 1., 0.))
-        // .defocus_angle(0.6)
-        .focus_dist(1000.)
-        .build();
-
-    let _ = camera.render(&world, "spheres-big-scene.ppm".to_string());
-    Ok(())
-}
-
-
-fn simple() -> io::Result<()> {
-    let ground_material = Material::Lambertian {
-        albedo: DVec3::new(0.5, 0.5, 0.5),
-    };
-    let mut world = HittableList { objects: vec![] };
-
-    let material2 = Material::Lambertian {
-        albedo: DVec3::new(0.5, 0.5, 0.5),
-    };
-    world.objects.push(Box::new(Sphere {
-        center: DVec3::new(0., 0., -1.2),
-        radius: 0.5,
-        material: material2,
-    }));
-    world.objects.push(Box::new(Sphere {
-        center: DVec3::new( 0.0, -100.5, -1.0),
-        radius: 100.0,
-        material: ground_material,
-    }));
-
-    let aspect_ratio = 16.0 / 9.0;
-    let image_width = 600;
-    let samples_per_pixel = 50;
-    let max_depth = 5;
-
-    let mut camera = CameraBuilder::new()
-        .image_width(image_width)
-        .aspect_ratio(aspect_ratio)
-        .samples_per_pixel(samples_per_pixel)
-        .max_depth(max_depth)
-        .vertical_fov(20.)
-        .look_from(DVec3::new(13.,2.,3.))
-        .look_at(DVec3::new(0.,0.,0.))
-        .v_up(DVec3::new(0., 1., 0.))
+        .look_from(DVec3::new(13., 2., 3.))
+        .look_at(DVec3::new(0., 0., 0.))
         .defocus_angle(0.6)
         .focus_dist(10.)
+        .v_up(DVec3::Y)
         .build();
 
     let _ = camera.render(&world, "spheres-big-scene.ppm".to_string());
-    println!("Rendered ok");
     Ok(())
 }
+
+// fn simple() -> io::Result<()> {
+//     let ground_material = Material::Lambertian {
+//         albedo: DVec3::new(0.5, 0.5, 0.5),
+//     };
+//     let mut world = HittableList { objects: vec![] };
+
+//     let material2 = Material::Lambertian {
+//         albedo: DVec3::new(0.5, 0.5, 0.5),
+//     };
+//     world.objects.push(Box::new(Sphere {
+//         center: DVec3::new(0., 0., -1.2),
+//         radius: 0.5,
+//         material: material2,
+//     }));
+//     world.objects.push(Box::new(Sphere {
+//         center: DVec3::new(0.0, -100.5, -1.0),
+//         radius: 100.0,
+//         material: ground_material,
+//     }));
+
+//     let aspect_ratio = 16.0 / 9.0;
+//     let image_width = 600;
+
+//     let mut camera = CameraBuilder::new()
+//         .image_width(image_width)
+//         .aspect_ratio(aspect_ratio)
+//         .samples_per_pixel(100)
+//         .max_depth(20)
+//         .vertical_fov(20.)
+//         .look_from(DVec3::new(13., 2., 3.))
+//         .look_at(DVec3::new(0., 0., 0.))
+//         .v_up(DVec3::new(0., 1., 0.))
+//         // .defocus_angle(60.)
+//         .focus_dist(10.)
+//         .build();
+
+//     let _ = camera.render(&world, "spheres-simple-scene.ppm".to_string());
+//     println!("Rendered ok");
+//     Ok(())
+// }
 
 fn main() -> io::Result<()> {
     big_scene()?;

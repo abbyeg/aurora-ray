@@ -1,4 +1,4 @@
-## Ray Tracer
+## Aurora
 
 A simple ray tracer written in Rust and based on the book [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
 

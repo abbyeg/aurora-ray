@@ -5,10 +5,21 @@ use rand::Rng;
 
 use crate::{hittable::HitRecord, ray::Ray};
 
+/// Note - albedo is how much light is reflected.
+
 #[derive(Copy, Clone)]
 pub enum Material {
+    ///   Diffuse reflectance. Can be implemented by either always scatter
+    ///   and attenuating light according to reflectance R, or it can 
+    ///   sometimes scatter with probability 1 - R with no attenuation,
+    ///   and absorb any ray that isn't scattered. Or some combination. 
+    /// 
+    ///   This implementation always scatters.
     Lambertian { albedo: DVec3 },
+    ///   Reflective material.
+    ///   
     Metal { albedo: DVec3, fuzz: f64 },
+    ///   Any clear material.
     Dielectric { refractive_index: f64 },
 }
 
@@ -17,6 +28,8 @@ impl Material {
         match self {
             Material::Lambertian { albedo } => {
                 let mut scatter_direction = hit_record.outward_normal + random_unit_vector();
+                
+                // avoid where result of scatter_direction is close to 0 to prevent infinites/NaNs
                 if near_zero(&scatter_direction) {
                     scatter_direction = hit_record.outward_normal;
                 }
@@ -81,7 +94,8 @@ fn refract(uv: &DVec3, n: &DVec3, etai_over_etat: f64) -> DVec3 {
     r_out_perp + r_out_parallel
 }
 
-/// Schlick's approximation for reflectance.
+/// Schlick's approximation for reflectance based on 
+/// the cosine of 
 fn reflectance(cosine: f64, refraction_index: f64) -> f64 {
     let mut r0 = (1.0 - refraction_index) / (1.0 + refraction_index);
     r0 = r0 * r0;
@@ -95,6 +109,7 @@ fn reflectance(cosine: f64, refraction_index: f64) -> f64 {
 /// For f64, support values of 1e-160 and greater.
 fn random_unit_vector() -> DVec3 {
     let mut rng = rand::thread_rng();
+
     loop {
         let x = rng.gen_range(-1.0..1.0);
         let y = rng.gen_range(-1.0..1.0);
@@ -102,7 +117,35 @@ fn random_unit_vector() -> DVec3 {
         let v = DVec3::new(x, y, z);
         let len_sq = v.length_squared();
         if len_sq > 1e-160 && len_sq <= 1.0 {
-            return v / len_sq;
+            return v / len_sq.sqrt();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_scatter_lambertian() {
+        let lambertian = Material::Lambertian {
+            albedo: DVec3::new(1., 2., 1.),
+        };
+    }
+
+    #[test]
+    fn test_random_unit_vector() {
+        let random_vec1 = random_unit_vector();
+        let random_vec2 = random_unit_vector();
+        let random_vec3 = random_unit_vector();
+        assert_eq!(random_vec1.length(), 1.);
+        assert_eq!(random_vec2.length(), 1.);
+        assert_eq!(random_vec3.length(), 1.);
+    }
+
+    #[test]
+    fn test_reflectance() {
+
     }
 }

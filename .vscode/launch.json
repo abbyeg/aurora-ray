@@ -7,15 +7,15 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug executable 'tracer'",
+      "name": "Debug executable 'aurora'",
       "cargo": {
         "args": [
           "build",
-          "--bin=tracer",
-          "--package=tracer"
+          "--bin=aurora",
+          "--package=aurora"
         ],
         "filter": {
-          "name": "tracer",
+          "name": "aurora",
           "kind": "bin"
         }
       },
@@ -25,16 +25,16 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in executable 'tracer'",
+      "name": "Debug unit tests in executable 'aurora'",
       "cargo": {
         "args": [
           "test",
           "--no-run",
-          "--bin=tracer",
-          "--package=tracer"
+          "--bin=aurora",
+          "--package=aurora"
         ],
         "filter": {
-          "name": "tracer",
+          "name": "aurora",
           "kind": "bin"
         }
       },
