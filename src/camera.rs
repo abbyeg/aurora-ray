@@ -2,6 +2,9 @@ use glam::DVec3;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use rand::{rngs::SmallRng, thread_rng, Rng, SeedableRng};
 use rayon::prelude::*;
+use winit::{
+  dpi::LogicalSize, event::{Event, WindowEvent}, event_loop::{ActiveEventLoop, ControlFlow, EventLoop}
+};
 use std::{
     cell::RefCell,
     f64::consts::PI,
@@ -14,7 +17,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::ray::Ray;
+use crate::{framebuffer::Framebuffer, ray::Ray};
 use crate::{fastrand::random_f64, fastrand::random_in_range, hittable::HittableList};
 
 const MAX_VAL: u8 = 255;
@@ -142,6 +145,7 @@ impl CameraBuilder {
     }
 }
 
+#[derive(Default)]
 pub struct Camera {
     image_width: u32,
     samples_per_pixel: u32,
@@ -207,6 +211,7 @@ impl Camera {
         let defocus_disk_u = u * defocus_radius;
         let defocus_disk_v = v * defocus_radius;
 
+
         Self {
             samples_per_pixel,
             pixel_samples_scale,
@@ -228,7 +233,7 @@ impl Camera {
         world: &HittableList,
         file_path: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut file = File::create(file_path)?;
+        let file = File::create(file_path)?;
         let mut buf_writer = BufWriter::new(file);
         self.write_ppm_header(&mut buf_writer)?;
         let size: u64 = self.image_height as u64 * self.image_width as u64;
@@ -281,6 +286,53 @@ impl Camera {
         Ok(())
     }
 
+    pub fn get_pixels(
+      &mut self,
+      world: &HittableList,
+  ) -> Result<Vec<[u8; 4]>, Box<dyn std::error::Error>> {
+      let size: u64 = self.image_height as u64 * self.image_width as u64;
+      let bar = Arc::new(ProgressBar::new(size));
+
+      bar.set_style(
+          ProgressStyle::default_bar()
+              .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} ({percent}%)")
+              .expect("Failed to set progress bar style")
+              .progress_chars("██░"),
+      );
+      bar.inc(0);
+
+      // render each pixel
+      let pixels: Vec<[u8; 4]> = (0..(self.image_height as u32))
+          .into_par_iter()
+          .enumerate()
+          .map(|(i, y)| {
+              let row: Vec<[u8; 4]> = (0..(self.image_width as u32))
+                  .map(|x| {
+                      let pixel: DVec3 = (0..self.samples_per_pixel)
+                          .map(|_| {
+                              let ray = self.get_ray(x, y);
+                              self.color(&ray, self.max_depth, &world)
+                          })
+                          .sum();
+
+                      let avg_color = self.pixel_samples_scale * pixel;
+                      [avg_color.x as u8, avg_color.y as u8, avg_color.z as u8, 255]
+                  })
+                  .collect();
+              if i % 100 == 0 {
+                  // Batch updates to reduce overhead
+                  Arc::clone(&bar).inc(100 * self.image_width as u64);
+              }
+              row
+          })
+          .flat_map(|row| row.to_vec())
+          .collect();
+
+      println!("Finished processing in {:?}", bar.elapsed());
+
+      Ok(pixels)
+  }
+
     fn get_ray(&self, x: u32, y: u32) -> Ray {
         let offset = self.sample_square();
         let pixel_center_offset = self.pixel_00_loc +
@@ -288,7 +340,6 @@ impl Camera {
             ((y as f64 + offset.y) * self.pixel_delta_v);
 
         let ray_origin = if self.defocus_angle <= 0.0 {
-            // println!("returning camera center");
             self.camera_center
         } else {
             self.defocus_disk_sample()
